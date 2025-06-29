@@ -29,11 +29,12 @@
   const ctx    = canvas.getContext('2d');
 
   // these BASE values will be multiplied by `scale`
+  // Make all elements smaller for mobile
   const BASE = {
-    triW:  60,    triH: 80,    triSpeed: 6,
-    projW: 8,     projH: 16,   projSpeed: 12,
+    triW:  38,    triH: 50,    triSpeed: 5,
+    projW: 6,     projH: 12,   projSpeed: 10,
     smallCount: 20, midCount:20, bigCount:3,
-    shooterSize: 40, bulletSize:16, bulletSpeed:4,
+    shooterSize: 26, bulletSize:10, bulletSpeed:3,
     timer: 40
   };
 
@@ -45,6 +46,8 @@
   let shooterSize, shooterBulletSize, shooterBulletSpeed;
 
   let triangleX = null, triangleY = null;
+  // UI safe zone at the top (no gameplay elements here)
+  let UI_SAFE_ZONE = 0;
   let projectiles = [];
   let circles     = [];
   let backgroundCircles = [];
@@ -73,6 +76,7 @@
 
   // —— Responsive Resize ——  
   function resizeCanvas() {
+    // Always use portrait, fill the screen, and design for mobile
     const dpr = window.devicePixelRatio || 1;
     WIDTH  = window.innerWidth;
     HEIGHT = window.innerHeight;
@@ -83,8 +87,11 @@
     ctx.setTransform(1,0,0,1,0,0); // reset transform before scaling
     ctx.scale(dpr, dpr);
 
-    // compute scale so that layout designed for 800×600 fits entirely on any screen, but never upscales above 1
-    scale = Math.min(WIDTH / 800, HEIGHT / 600, 1);
+    // For mobile: scale based on width, keep everything visible, use more vertical space
+    scale = WIDTH / 400; // 400px wide is our new mobile base
+    if (HEIGHT < WIDTH) scale = HEIGHT / 700; // landscape: fit height
+    // Clamp scale to avoid upscaling on huge screens
+    scale = Math.min(scale, 1.5);
 
     // recalc all sizes
     triangleWidth      = BASE.triW * scale;
@@ -97,16 +104,18 @@
     shooterBulletSize  = BASE.bulletSize * scale;
     shooterBulletSpeed = BASE.bulletSpeed * scale;
 
+    // UI safe zone at the top (for score/time and shooters)
+    UI_SAFE_ZONE = Math.max(100 * scale, 0.13 * HEIGHT);
+
     // recenter triangle first time
     if (triangleX === null) {
       triangleX = WIDTH / 2;
-      triangleY = HEIGHT / 2;
+      triangleY = Math.max(HEIGHT - triangleHeight*2, UI_SAFE_ZONE + triangleHeight/2 + 10*scale);
     } else {
       // clamp to new bounds
       triangleX = Math.max(triangleWidth/2, Math.min(WIDTH - triangleWidth/2, triangleX));
-      triangleY = Math.max(triangleHeight/2, Math.min(HEIGHT - triangleHeight/2, triangleY));
+      triangleY = Math.max(UI_SAFE_ZONE + triangleHeight/2 + 10*scale, Math.min(HEIGHT - triangleHeight/2, triangleY));
     }
-    // update mobile button if present
     updateMobileShootBtnVisibility();
   }
 
@@ -128,15 +137,20 @@
     mobBtn = document.createElement('button');
     mobBtn.id = 'mobileShootBtn';
     mobBtn.innerText = 'FIRE';
+    const btnSize = 42 * scale;
     Object.assign(mobBtn.style, {
       position: 'fixed',
-      right: `${5 * scale}vw`,
-      bottom: `${7 * scale}vh`,
-      width: `${56*scale}px`,
-      height: `${56*scale}px`,
-      fontSize: `${16*scale}px`,
+      right: '6vw',
+      bottom: '7vh',
+      width: `${btnSize}px`,
+      height: `${btnSize}px`,
+      minWidth: `${btnSize}px`,
+      minHeight: `${btnSize}px`,
+      maxWidth: `${btnSize}px`,
+      maxHeight: `${btnSize}px`,
+      fontSize: `${14*scale}px`,
       borderRadius: '50%',
-      background: 'linear-gradient(135deg, #ff2222 60%, #ff8800 100%)',
+      background: 'radial-gradient(circle at 60% 40%, #ff8800 0%, #ff2222 90%)',
       color: '#fff',
       border: 'none',
       boxShadow: '0 2px 8px #0006',
@@ -145,14 +159,23 @@
       userSelect: 'none',
       touchAction: 'none',
       opacity: 0.97,
-      lineHeight: `${56*scale}px`,
+      lineHeight: `${btnSize}px`,
       textAlign: 'center',
       fontWeight: 'bold',
       letterSpacing: '1px',
+      transition: 'transform 0.08s',
+      padding: '0',
+      overflow: 'hidden',
     });
+    // Visual feedback on press
+    mobBtn.addEventListener('touchstart', ()=>{ mobBtn.style.transform = 'scale(0.92)'; }, { passive: false });
+    mobBtn.addEventListener('touchend', ()=>{ mobBtn.style.transform = ''; });
+    mobBtn.addEventListener('mousedown', ()=>{ mobBtn.style.transform = 'scale(0.92)'; });
+    mobBtn.addEventListener('mouseup', ()=>{ mobBtn.style.transform = ''; });
     const shoot = e => {
       e.preventDefault();
       projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
+      if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
     };
     mobBtn.addEventListener('touchstart', shoot, { passive: false });
     mobBtn.addEventListener('mousedown', shoot);
@@ -191,7 +214,7 @@
   function resetGame() {
     resizeCanvas();
     triangleX = WIDTH / 2;
-    triangleY = HEIGHT / 2;
+    triangleY = HEIGHT - triangleHeight*2;
     projectiles = [];
     score = 0;
     gameOver = false;
@@ -237,9 +260,11 @@
         const vy = Math.random()<0.65
           ? (Math.random()<0.5?-1:1)*randomBetween(1,2.5)*scale
           : 0;
-        circles.push({ x: randomBetween(r, WIDTH-r),
-                       y: randomBetween(r, HEIGHT-r),
-                       r, hits:0, maxHits:1, color:'#ff2222', vx, vy });
+        circles.push({
+          x: randomBetween(r, WIDTH-r),
+          y: randomBetween(UI_SAFE_ZONE + r + 8*scale, HEIGHT-r),
+          r, hits:0, maxHits:1, color:'#ff2222', vx, vy
+        });
       }
     }
     // mid
@@ -250,9 +275,11 @@
         const vy = Math.random()<0.65
           ? (Math.random()<0.5?-1:1)*randomBetween(0.7,2)*scale
           : 0;
-        circles.push({ x: randomBetween(r, WIDTH-r),
-                       y: randomBetween(r, HEIGHT-r),
-                       r, hits:0, maxHits:5, color:'#ff2222', vx, vy });
+        circles.push({
+          x: randomBetween(r, WIDTH-r),
+          y: randomBetween(UI_SAFE_ZONE + r + 8*scale, HEIGHT-r),
+          r, hits:0, maxHits:5, color:'#ff2222', vx, vy
+        });
       }
     }
     // big
@@ -262,7 +289,7 @@
         let x,y,ok,tries=0;
         do {
           x = randomBetween(r, WIDTH-r);
-          y = randomBetween(r, HEIGHT-r);
+          y = randomBetween(UI_SAFE_ZONE + r + 8*scale, HEIGHT-r);
           ok = !circles.some(c=>Math.hypot(x-c.x,y-c.y)<c.r+r+4);
           tries++;
         } while(!ok && tries<100);
@@ -286,7 +313,7 @@
     for (let i=0;i<cols;i++){
       shooters.push({
         x: spacing*(i+1),
-        y: 60*scale,
+        y: UI_SAFE_ZONE/2 + shooterSize/2 + 6*scale, // always below UI safe zone
         size: shooterSize,
         color: '#00ff44',
         nextShot: Date.now() + 5000*(1+Math.random())
@@ -331,7 +358,7 @@
     triangleX = e.clientX-r.left - dragOffsetX;
     triangleY = e.clientY-r.top  - dragOffsetY;
     triangleX = Math.max(triangleWidth/2,Math.min(WIDTH-triangleWidth/2,triangleX));
-    triangleY = Math.max(triangleHeight/2,Math.min(HEIGHT-triangleHeight/2,triangleY));
+    triangleY = Math.max(UI_SAFE_ZONE + triangleHeight/2 + 10*scale, Math.min(HEIGHT-triangleHeight/2,triangleY));
   });
   ['mouseup','mouseleave'].forEach(evt=>
     canvas.addEventListener(evt,()=>draggingTriangle=false)
@@ -416,8 +443,13 @@
   function updateCircles() {
     circles.forEach(c => {
       c.x += c.vx; c.y += c.vy;
-      if(c.x-c.r<0||c.x+c.r>WIDTH)  c.vx*=-1;
-      if(c.y-c.r<0||c.y+c.r>HEIGHT) c.vy*=-1;
+      // Prevent circles from moving below the bottom, and keep them hittable
+      if (c.x - c.r < 0 || c.x + c.r > WIDTH) c.vx *= -1;
+      if (c.y - c.r < UI_SAFE_ZONE) c.vy = Math.abs(c.vy); // bounce down if above UI
+      if (c.y + c.r > HEIGHT - triangleHeight*1.2) {
+        c.y = HEIGHT - triangleHeight*1.2 - c.r;
+        c.vy = -Math.abs(c.vy); // always bounce up if at bottom
+      }
     });
   }
 
@@ -506,16 +538,94 @@
     });
   }
 
+  // —— Scoreboard & Name Input —__
   function drawScoreboard() {
     ctx.save();
     ctx.fillStyle='#fff'; ctx.fillRect(0,0,WIDTH,HEIGHT);
     ctx.fillStyle='#000'; ctx.textAlign='center'; ctx.textBaseline='top';
-    ctx.font = `${24*scale}px Arial`; ctx.fillText('Top 10 Scores', WIDTH/2, HEIGHT/2-80*scale);
-    ctx.font = `${18*scale}px Arial`;
+    ctx.font = `bold ${28*scale}px Arial`;
+    ctx.fillText('Top 10 Scores', WIDTH/2, 32*scale);
+    ctx.font = `${20*scale}px Arial`;
     scoreboard.forEach((e,i)=>{
-      ctx.fillText(`${i+1}. ${e.name}: ${e.score}`, WIDTH/2, HEIGHT/2-40*scale + i*30*scale);
+      ctx.fillText(`${i+1}. ${e.name}: ${e.score}`, WIDTH/2, 80*scale + i*32*scale);
     });
     ctx.restore();
+  }
+
+  function showNameInput() {
+    if(nameInputElement) return;
+    const wrapper=document.createElement('div');
+    wrapper.id='nameInputWrapper';
+    Object.assign(wrapper.style, {
+      position: 'fixed',
+      left: '50%',
+      top: '12%',
+      transform: 'translate(-50%, 0)',
+      zIndex: 2001,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      background: 'rgba(255,255,255,0.97)',
+      padding: `${10*scale}px ${18*scale}px`,
+      borderRadius: `${12*scale}px`,
+      boxShadow: '0 2px 12px #0003',
+      gap: `${8*scale}px`,
+    });
+    nameInputElement = document.createElement('input');
+    nameInputElement.type='text';
+    nameInputElement.maxLength=12;
+    nameInputElement.placeholder='Enter your name';
+    Object.assign(nameInputElement.style, {
+      fontSize: `${18*scale}px`,
+      padding: `${8*scale}px ${12*scale}px`,
+      borderRadius:`${8*scale}px`,
+      border:`2px solid #0078ff`,
+      outline:'none',
+      textAlign:'center',
+      background:'#fff',
+      color:'#0078ff',
+      width: `${180*scale}px`,
+      marginBottom: `${8*scale}px`,
+    });
+    const submitBtn = document.createElement('button');
+    submitBtn.innerText='Submit';
+    Object.assign(submitBtn.style, {
+      fontSize: `${18*scale}px`,
+      padding: `${8*scale}px ${20*scale}px`,
+      borderRadius:`${8*scale}px`,
+      background:'#0078ff',
+      color:'#fff',
+      border:'none',
+      cursor:'pointer',
+      height: `${48*scale}px`
+    });
+    const doSubmit = () => {
+      const name = nameInputElement.value.trim() || 'Anonymous';
+      document.getElementById('nameInputWrapper').remove();
+      nameInputElement = null;
+      submitScore(name);
+    };
+    submitBtn.onclick = doSubmit;
+    nameInputElement.addEventListener('keydown', e=>{ if(e.key==='Enter') doSubmit(); });
+    wrapper.append(nameInputElement, submitBtn);
+    document.body.appendChild(wrapper);
+    nameInputElement.focus();
+  }
+  function hideNameInput() {
+    const w=document.getElementById('nameInputWrapper');
+    if(w) w.remove();
+    nameInputElement = null;
+  }
+
+  function submitScore(name) {
+    scoreboard.push({name,score});
+    scoreboard.sort((a,b)=>b.score-a.score);
+    if(scoreboard.length>10) scoreboard.length=10;
+    saveScoreboard();
+    window._scoreSubmittedForThisGame=true;
+    hideNameInput();
+    drawScoreboard();
+    showPlayAgainButton();
   }
 
   function showPlayAgainButton() {
@@ -545,89 +655,7 @@
     if(b) b.remove();
   }
 
-  function showNameInput() {
-    if(nameInputElement) return;
-    const wrapper=document.createElement('div');
-    wrapper.id='nameInputWrapper';
-    const isMobile = isTouchDevice() || WIDTH < 600;
-    Object.assign(wrapper.style, {
-      position: 'fixed',
-      left: '50%',
-      top: isMobile? '18%':'45%',
-      transform: 'translate(-50%,-50%)',
-      zIndex: 2001,
-      display: 'flex',
-      flexDirection: isMobile?'column':'row',
-      alignItems: 'center',
-      background: 'rgba(255,255,255,0.97)',
-      padding: isMobile? `${8*scale}px`:`${12*scale}px ${24*scale}px`,
-      borderRadius: `${12*scale}px`,
-      boxShadow: '0 2px 12px #0003',
-      gap: `${8*scale}px`
-    });
-
-    nameInputElement = document.createElement('input');
-    nameInputElement.type='text';
-    nameInputElement.maxLength=12;
-    nameInputElement.placeholder='Enter your name';
-    Object.assign(nameInputElement.style, {
-      fontSize: `${16*scale}px`,
-      padding: `${8*scale}px ${16*scale}px`,
-      borderRadius:`${8*scale}px`,
-      border:`2px solid #0078ff`,
-      outline:'none',
-      textAlign:'center',
-      background:'#fff',
-      color:'#0078ff',
-      marginRight: isMobile? '0': `${12*scale}px`,
-      marginBottom: isMobile? `${8*scale}px`:'0',
-      width: isMobile? `${140*scale}px`:'auto'
-    });
-
-    const submitBtn = document.createElement('button');
-    submitBtn.innerText='Submit';
-    Object.assign(submitBtn.style, {
-      fontSize: `${16*scale}px`,
-      padding: `${8*scale}px ${20*scale}px`,
-      borderRadius:`${8*scale}px`,
-      background:'#0078ff',
-      color:'#fff',
-      border:'none',
-      cursor:'pointer',
-      height: `${48*scale}px`
-    });
-
-    const doSubmit = () => {
-      const name = nameInputElement.value.trim() || 'Anonymous';
-      document.getElementById('nameInputWrapper').remove();
-      nameInputElement = null;
-      submitScore(name);
-    };
-
-    submitBtn.onclick = doSubmit;
-    nameInputElement.addEventListener('keydown', e=>{ if(e.key==='Enter') doSubmit(); });
-
-    wrapper.append(nameInputElement, submitBtn);
-    document.body.appendChild(wrapper);
-    nameInputElement.focus();
-  }
-  function hideNameInput() {
-    const w=document.getElementById('nameInputWrapper');
-    if(w) w.remove();
-    nameInputElement = null;
-  }
-
-  function submitScore(name) {
-    scoreboard.push({name,score});
-    scoreboard.sort((a,b)=>b.score-a.score);
-    if(scoreboard.length>10) scoreboard.length=10;
-    saveScoreboard();
-    window._scoreSubmittedForThisGame=true;
-    hideNameInput();
-    drawScoreboard();
-    showPlayAgainButton();
-  }
-
+  // —— Main Game Loop ——  
   function draw() {
     ctx.fillStyle='#000';
     ctx.fillRect(0,0,WIDTH,HEIGHT);
@@ -651,9 +679,10 @@
     ctx.textBaseline = 'top';
     ctx.fillStyle = '#fff';
     ctx.globalAlpha = 0.92;
-    ctx.fillText(`Score: ${score}`, WIDTH - 32*scale, 24*scale);
+    // Add more vertical padding for UI
+    ctx.fillText(`Score: ${score}`, WIDTH - 32*scale, 24*scale + 0.04*HEIGHT);
     ctx.textAlign = 'left';
-    ctx.fillText(`Time: ${levelTimer}s`, 32*scale, 24*scale);
+    ctx.fillText(`Time: ${levelTimer}s`, 32*scale, 24*scale + 0.04*HEIGHT);
     ctx.restore();
 
     if(gameOver){
