@@ -90,7 +90,9 @@ function createMobileShootButton() {
 
 function updateMobileShootBtnVisibility() {
   if (!mobBtn) return;
-  if (window.innerWidth <= 800 || window.innerHeight <= 600) {
+  // Use user agent to detect mobile, or small screen
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+  if (isMobile || window.innerWidth <= 800 || window.innerHeight <= 600) {
     mobBtn.style.display = 'block';
     // Update rect for collision avoidance
     const rect = mobBtn.getBoundingClientRect();
@@ -577,26 +579,41 @@ function showNameInput() {
   // Create wrapper div for input and button
   const wrapper = document.createElement('div');
   wrapper.id = 'nameInputWrapper';
+  // Responsive position: higher on small screens
+  let topPos = '45%';
+  let flexDir = 'row';
+  let pad = '12px 24px';
+  let fontSize = '2em';
+  if (window.innerWidth <= 600 || window.innerHeight <= 600) {
+    topPos = '30%';
+    flexDir = 'column';
+    pad = '10px 10px';
+    fontSize = '1.2em';
+  }
   Object.assign(wrapper.style, {
-    position: 'fixed', left: '50%', top: '45%', transform: 'translate(-50%, -50%)',
-    zIndex: 2001, display: 'flex', flexDirection: 'row', alignItems: 'center',
-    background: 'rgba(255,255,255,0.95)', padding: '12px 24px', borderRadius: '12px',
+    position: 'fixed', left: '50%', top: topPos, transform: 'translate(-50%, -50%)',
+    zIndex: 2001, display: 'flex', flexDirection: flexDir, alignItems: 'center',
+    background: 'rgba(255,255,255,0.95)', padding: pad, borderRadius: '12px',
     boxShadow: '0 2px 12px #0003',
+    gap: '8px',
   });
   nameInputElement = document.createElement('input');
   nameInputElement.type = 'text';
   nameInputElement.maxLength = 12;
   nameInputElement.placeholder = 'Enter your name';
   Object.assign(nameInputElement.style, {
-    fontSize: '2em', padding: '8px 16px', borderRadius: '8px',
+    fontSize: fontSize, padding: '8px 16px', borderRadius: '8px',
     border: '2px solid #0078ff', outline: 'none',
     textAlign: 'center', background: '#fff', color: '#0078ff',
-    marginRight: '12px',
+    marginRight: flexDir === 'row' ? '12px' : '0',
+    marginBottom: flexDir === 'column' ? '8px' : '0',
+    width: window.innerWidth <= 600 ? '140px' : 'auto',
+    boxSizing: 'border-box',
   });
   const submitBtn = document.createElement('button');
   submitBtn.innerText = 'Submit';
   Object.assign(submitBtn.style, {
-    fontSize: '1.3em', padding: '8px 20px', borderRadius: '8px',
+    fontSize: flexDir === 'row' ? '1.3em' : '1em', padding: '8px 20px', borderRadius: '8px',
     background: '#0078ff', color: '#fff', border: 'none', cursor: 'pointer',
     height: '48px',
   });
