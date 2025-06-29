@@ -44,10 +44,71 @@ const touchMoveThreshold = 10;
 let touchActive = false, touchStartX = 0, touchStartY = 0;
 let draggingTriangle = false, dragOffsetX = 0, dragOffsetY = 0;
 
-// Mobile shoot button (optional)
-const mobBtn = document.getElementById('mobileShootBtn');
+// Mobile shoot button (created dynamically)
+let mobBtn = null;
+let mobBtnRect = null;
 
+function createMobileShootButton() {
+  if (mobBtn) return;
+  mobBtn = document.createElement('button');
+  mobBtn.id = 'mobileShootBtn';
+  mobBtn.innerText = 'FIRE';
+  Object.assign(mobBtn.style, {
+    position: 'fixed',
+    right: '5vw',
+    bottom: '7vh',
+    width: '56px', // smaller size
+    height: '56px',
+    fontSize: '1.1em',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #ff2222 60%, #ff8800 100%)',
+    color: '#fff',
+    border: 'none',
+    boxShadow: '0 2px 8px #0006',
+    zIndex: 3000,
+    display: 'none',
+    outline: 'none',
+    userSelect: 'none',
+    touchAction: 'none',
+    opacity: 0.97,
+    padding: '0',
+    lineHeight: '56px',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    letterSpacing: '1px',
+  });
+  mobBtn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
+  }, { passive: false });
+  mobBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
+    projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
+  });
+  document.body.appendChild(mobBtn);
+}
 
+function updateMobileShootBtnVisibility() {
+  if (!mobBtn) return;
+  if (window.innerWidth <= 800 || window.innerHeight <= 600) {
+    mobBtn.style.display = 'block';
+    // Update rect for collision avoidance
+    const rect = mobBtn.getBoundingClientRect();
+    mobBtnRect = {
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom
+    };
+  } else {
+    mobBtn.style.display = 'none';
+    mobBtnRect = null;
+  }
+}
+
+createMobileShootButton();
+updateMobileShootBtnVisibility();
+window.addEventListener('resize', updateMobileShootBtnVisibility);
 
 // —— Initialization ——
 
@@ -168,6 +229,7 @@ function resetGame() {
   startLevelTimer();
   hidePlayAgainButton();
   hideNameInput();
+  updateMobileShootBtnVisibility(); // Ensure button visibility is updated on reset
 }
 
 function startLevelTimer() {
@@ -312,7 +374,8 @@ if (mobBtn) {
     e.preventDefault();
     projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
   }, { passive: false });
-  mobBtn.addEventListener('click', () => {
+  mobBtn.addEventListener('mousedown', e => {
+    e.preventDefault();
     projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
   });
 }
@@ -439,6 +502,24 @@ function drawBackgroundCircles() {
 
 function drawCircles() {
   circles.forEach(c => {
+    // On mobile, avoid drawing under the fire button
+    if (mobBtnRect && window.innerWidth <= 800) {
+      // Convert canvas to screen coordinates
+      const scaleX = canvas.width / canvas.offsetWidth;
+      const scaleY = canvas.height / canvas.offsetHeight;
+      const screenX = c.x / scaleX;
+      const screenY = c.y / scaleY;
+      const r = c.r / scaleX;
+      // If overlaps with fire button, skip drawing
+      if (
+        screenX + r > mobBtnRect.left &&
+        screenX - r < mobBtnRect.right &&
+        screenY + r > mobBtnRect.top &&
+        screenY - r < mobBtnRect.bottom
+      ) {
+        return;
+      }
+    }
     ctx.fillStyle = c.color;
     ctx.fillRect(c.x - c.r, c.y - c.r, c.r * 2, c.r * 2);
   });
