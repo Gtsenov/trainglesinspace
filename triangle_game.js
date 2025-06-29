@@ -132,6 +132,21 @@
   }
 
   // —— Mobile FIRE button ——  
+  // --- Hold-to-fire logic ---
+  let fireInterval = null;
+  function startFiring() {
+    if (fireInterval) return;
+    projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
+    if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
+    fireInterval = setInterval(() => {
+      projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
+      if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(10);
+    }, 120); // fire every 120ms while held
+  }
+  function stopFiring() {
+    if (fireInterval) clearInterval(fireInterval);
+    fireInterval = null;
+  }
   function createMobileShootButton() {
     if (mobBtn) return;
     mobBtn = document.createElement('button');
@@ -172,13 +187,13 @@
     mobBtn.addEventListener('touchend', ()=>{ mobBtn.style.transform = ''; });
     mobBtn.addEventListener('mousedown', ()=>{ mobBtn.style.transform = 'scale(0.92)'; });
     mobBtn.addEventListener('mouseup', ()=>{ mobBtn.style.transform = ''; });
-    const shoot = e => {
-      e.preventDefault();
-      projectiles.push({ x: triangleX, y: triangleY - triangleHeight/2 });
-      if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(30);
-    };
-    mobBtn.addEventListener('touchstart', shoot, { passive: false });
-    mobBtn.addEventListener('mousedown', shoot);
+    // Hold-to-fire events
+    mobBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); startFiring(); }, { passive: false });
+    mobBtn.addEventListener('touchend', stopFiring);
+    mobBtn.addEventListener('touchcancel', stopFiring);
+    mobBtn.addEventListener('mousedown', (e)=>{ e.preventDefault(); startFiring(); });
+    mobBtn.addEventListener('mouseup', stopFiring);
+    mobBtn.addEventListener('mouseleave', stopFiring);
     document.body.appendChild(mobBtn);
   }
 
