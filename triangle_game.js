@@ -1,5 +1,13 @@
 // triangle_game.js
 
+// Prevent zoom on mobile for better UI consistency
+(function preventMobileZoom() {
+  const meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+  document.head.appendChild(meta);
+})();
+
 // —— Globals ——
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
