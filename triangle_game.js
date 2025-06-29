@@ -92,16 +92,22 @@ function updateMobileShootBtnVisibility() {
   if (!mobBtn) return;
   // Use user agent to detect mobile, or small screen
   const isMobile = /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+  // Always show on mobile, but also force a reflow to fix iOS Chrome bug
   if (isMobile || window.innerWidth <= 800 || window.innerHeight <= 600) {
     mobBtn.style.display = 'block';
+    mobBtn.style.visibility = 'hidden';
+    document.body.offsetHeight; // force reflow
+    mobBtn.style.visibility = 'visible';
     // Update rect for collision avoidance
-    const rect = mobBtn.getBoundingClientRect();
-    mobBtnRect = {
-      left: rect.left,
-      top: rect.top,
-      right: rect.right,
-      bottom: rect.bottom
-    };
+    setTimeout(() => {
+      const rect = mobBtn.getBoundingClientRect();
+      mobBtnRect = {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom
+      };
+    }, 100); // delay for layout
   } else {
     mobBtn.style.display = 'none';
     mobBtnRect = null;
@@ -579,23 +585,31 @@ function showNameInput() {
   // Create wrapper div for input and button
   const wrapper = document.createElement('div');
   wrapper.id = 'nameInputWrapper';
-  // Responsive position: higher on small screens
+  // Responsive position: much higher on mobile
   let topPos = '45%';
   let flexDir = 'row';
   let pad = '12px 24px';
   let fontSize = '2em';
-  if (window.innerWidth <= 600 || window.innerHeight <= 600) {
-    topPos = '30%';
+  let minWidth = 'auto';
+  let minHeight = 'auto';
+  // Use user agent to detect mobile
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+  if (isMobile || window.innerWidth <= 600 || window.innerHeight <= 600) {
+    topPos = '18%'; // much higher
     flexDir = 'column';
-    pad = '10px 10px';
-    fontSize = '1.2em';
+    pad = '8px 8px';
+    fontSize = '1.1em';
+    minWidth = '180px';
+    minHeight = 'auto';
   }
   Object.assign(wrapper.style, {
     position: 'fixed', left: '50%', top: topPos, transform: 'translate(-50%, -50%)',
     zIndex: 2001, display: 'flex', flexDirection: flexDir, alignItems: 'center',
-    background: 'rgba(255,255,255,0.95)', padding: pad, borderRadius: '12px',
+    background: 'rgba(255,255,255,0.97)', padding: pad, borderRadius: '12px',
     boxShadow: '0 2px 12px #0003',
     gap: '8px',
+    minWidth,
+    minHeight,
   });
   nameInputElement = document.createElement('input');
   nameInputElement.type = 'text';
@@ -607,8 +621,9 @@ function showNameInput() {
     textAlign: 'center', background: '#fff', color: '#0078ff',
     marginRight: flexDir === 'row' ? '12px' : '0',
     marginBottom: flexDir === 'column' ? '8px' : '0',
-    width: window.innerWidth <= 600 ? '140px' : 'auto',
+    width: isMobile ? '140px' : 'auto',
     boxSizing: 'border-box',
+    minWidth: isMobile ? '120px' : 'auto',
   });
   const submitBtn = document.createElement('button');
   submitBtn.innerText = 'Submit';
