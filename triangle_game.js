@@ -2,10 +2,24 @@
 
 // Prevent zoom on mobile for better UI consistency
 (function preventMobileZoom() {
-  const meta = document.createElement('meta');
-  meta.name = 'viewport';
-  meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-  document.head.appendChild(meta);
+  let meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'viewport';
+    document.head.appendChild(meta);
+  }
+  // Use width=device-width and set both initial and minimum scale to 1.0, allow user-scalable=no
+  meta.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no';
+})();
+
+// Ensure body and html always fill the viewport and prevent scroll/zoom
+(function fixBodyFullScreen() {
+  document.documentElement.style.height = '100%';
+  document.documentElement.style.width = '100%';
+  document.body.style.height = '100%';
+  document.body.style.width = '100%';
+  document.body.style.margin = '0';
+  document.body.style.overflow = 'hidden';
 })();
 
 // —— Globals ——
